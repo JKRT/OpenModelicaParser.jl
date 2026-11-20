@@ -42,9 +42,9 @@ jobs:
       uses: JKRT/OM.jl/.github/actions/checkout-siblings@master
       with:
         path: ..
-        packages: ImmutableList MetaModelica
+        packages: ImmutableList
 
-    - name: Develop sibling OM.jl packages
+    - name: Develop sibling ImmutableList
       shell: bash
       run: |
         julia --color=yes --project -e '
@@ -53,7 +53,6 @@ jobs:
           Pkg.Registry.add(Pkg.RegistrySpec(url="https://github.com/OpenModelica/OpenModelicaRegistry.git"))
           Pkg.develop([
             Pkg.PackageSpec(path="../ImmutableList.jl"),
-            Pkg.PackageSpec(path="../MetaModelica.jl"),
           ])
           Pkg.instantiate()
         '

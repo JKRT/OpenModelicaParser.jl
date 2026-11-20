@@ -89,7 +89,7 @@ The parser has no dynamic dispatch (tested), so programs that use it can be comp
 Not registered yet. Add it from the repository:
 ```julia
 import Pkg
-Pkg.add(url = "https://github.com/JKRT/OpenModelicaParser.jl")
+Pkg.add(url = "https://github.com/OpenModelica/OpenModelicaParser.jl")
 ```
 
 ## License
