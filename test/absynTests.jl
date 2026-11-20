@@ -1,14 +1,14 @@
 #=
-Tests of OMParser.Absyn (formerly the package Absyn.jl): the records, named imports, and the Modelica
+Tests of OpenModelicaParser.Absyn (formerly the package Absyn.jl): the records, named imports, and the Modelica
 pretty-printing (absynDump.jl).
 =#
 module AbsynTests
 
 using Test
 using MetaModelica
-using OMParser.Absyn
-import OMParser.Absyn
-using OMParser.Absyn: PROGRAM
+using OpenModelicaParser.Absyn
+import OpenModelicaParser.Absyn
+using OpenModelicaParser.Absyn: PROGRAM
 
 @testset "Absyn" begin
   @testset "records and imports" begin

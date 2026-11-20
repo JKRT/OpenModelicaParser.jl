@@ -1,12 +1,12 @@
 using Test
 using MetaModelica
-import OMParser
-import OMParser.Absyn
+import OpenModelicaParser
+import OpenModelicaParser.Absyn
 
 #= Helper: parse a MetaModelica string.
    acceptedGram=2 selects MetaModelica, languageStandard=9999 is experimental. =#
 function mmParse(code::String)::Absyn.Program
-  OMParser.parseString(code, "<test>", 2, 9999)
+  OpenModelicaParser.parseString(code, "<test>", 2, 9999)
 end
 
 #= Helper: extract the first class from a parsed program =#

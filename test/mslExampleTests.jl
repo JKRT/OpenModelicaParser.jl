@@ -14,10 +14,10 @@ module MSLExampleTests
 using Test
 import ImmutableList
 import MetaModelica
-import OMParser
-using OMParser: @Modelica, @Modelica_str
+import OpenModelicaParser
+using OpenModelicaParser: @Modelica, @Modelica_str
 
-const Absyn = OMParser.Absyn
+const Absyn = OpenModelicaParser.Absyn
 
 "An example model of the library."
 struct ExampleModel
@@ -120,7 +120,7 @@ The example models of the library in `file`, read with the line ends of a Julia 
 function exampleModels(file::String)::Vector{ExampleModel}
   local text::String = literalLineEnds(read(file, String))
   local lines::Vector{String} = String.(split(text, '\n'))
-  local program::Absyn.Program = OMParser.parseString(text, file)
+  local program::Absyn.Program = OpenModelicaParser.parseString(text, file)
   local found::Vector{ExampleModel} = ExampleModel[]
   for class::Absyn.Class in program.classes
     collectExamples!(found, class, "", lines)
@@ -229,7 +229,7 @@ function outcome(call::Expr, model::ExampleModel)::Outcome
   try
     expansion = macroexpand(@__MODULE__, call)
   catch err
-    (err isa LoadError ? err.error : err) isa OMParser.ParseError || rethrow()
+    (err isa LoadError ? err.error : err) isa OpenModelicaParser.ParseError || rethrow()
     return PARSE_ERROR
   end
   local program::Absyn.Program = expansion.value
@@ -265,9 +265,9 @@ end
 
   #= The comparison of the trees: positions count. =#
   local one::ExampleModel = first(models)
-  @test sameTree(OMParser.parseString(one.text, file), OMParser.parseString(one.text, file))
-  @test !sameTree(OMParser.parseString(one.text, file), OMParser.parseString(one.text, file; firstLine = 2))
-  @test !sameTree(OMParser.parseString(one.text, file), OMParser.parseString(one.text, "other.mo"))
+  @test sameTree(OpenModelicaParser.parseString(one.text, file), OpenModelicaParser.parseString(one.text, file))
+  @test !sameTree(OpenModelicaParser.parseString(one.text, file), OpenModelicaParser.parseString(one.text, file; firstLine = 2))
+  @test !sameTree(OpenModelicaParser.parseString(one.text, file), OpenModelicaParser.parseString(one.text, "other.mo"))
   @test !sameTree(one.class, models[2].class)
 
   #=

@@ -1,19 +1,22 @@
-# OMParser.jl
+# OpenModelicaParser.jl
 
 A Modelica parser written in Julia. It reads Modelica (and MetaModelica, ParModelica, Optimica and
 PDEModelica) into `Absyn` trees, the abstract syntax of the OpenModelica compiler, which
 [OMFrontend.jl](https://github.com/OpenModelica/OMFrontend.jl) instantiates. Pure Julia: nothing to
 build.
 
-Two modules: `OMParser.Absyn`, the syntax tree records (formerly the package Absyn.jl), and
-`OMParser.Parser`, the lexer and parser. `parseFile`, `parseString` and `ParseError` are also
-`OMParser.parseFile` etc. `Modelica"..."` takes Modelica source written in a Julia file.
+Two modules: `OpenModelicaParser.Absyn`, the syntax tree records (formerly the package Absyn.jl), and
+`OpenModelicaParser.Parser`, the lexer and parser. `parseFile`, `parseString` and `ParseError` are also
+`OpenModelicaParser.parseFile` etc. `Modelica"..."` takes Modelica source written in a Julia file.
+
+Formerly OMParser.jl: OpenModelicaParser 1.0.0 is OMParser 1.1.0 renamed, with a new UUID. OMParser
+stays registered for the packages that depend on it.
 
 ## Use
 ```julia
-import OMParser
-program = OMParser.parseFile("HelloWorld.mo")
-program = OMParser.parseString("model M Real x; equation x = 1; end M;", "M.mo")
+import OpenModelicaParser
+program = OpenModelicaParser.parseFile("HelloWorld.mo")
+program = OpenModelicaParser.parseString("model M Real x; equation x = 1; end M;", "M.mo")
 ```
 `parseFile(fileName, acceptedGram = 1, languageStandard = 9999)` and `parseString(contents,
 fileName = "<default>", acceptedGram = 1, languageStandard = 1000; firstLine = 1)` return an
@@ -22,14 +25,14 @@ fileName = "<default>", acceptedGram = 1, languageStandard = 1000; firstLine = 1
 `languageStandard`: 10, 20, 30, 31, 32, 33, 34, 35 (1.x to 3.5), 1000 (latest), 9999 (experimental).
 `firstLine`: the number of the text's first line, for a text that is part of a file.
 
-The records keep their names under `import OMParser.Absyn`:
+The records keep their names under `import OpenModelicaParser.Absyn`:
 ```julia
-import OMParser.Absyn
+import OpenModelicaParser.Absyn
 program isa Absyn.PROGRAM
 Absyn.dumpPath(Absyn.QUALIFIED("Modelica", Absyn.IDENT("Blocks")))   # "Modelica.Blocks"
 ```
 
-A syntax error throws an `OMParser.ParseError` with the file, line and column:
+A syntax error throws an `OpenModelicaParser.ParseError` with the file, line and column:
 ```
 M.mo:2:9: Expected ';' after the element but found 'equation' on line 3
     Real x
@@ -39,7 +42,7 @@ M.mo:2:9: Expected ';' after the element but found 'equation' on line 3
 ### Modelica in a Julia file
 `Modelica"""..."""` (exported) gives the `Absyn.Program` of Modelica source written in a Julia file:
 ```julia
-using OMParser
+using OpenModelicaParser
 program = Modelica"""
   model Decay
     Real x(start = 1.0);
@@ -83,14 +86,10 @@ The parser has no dynamic dispatch (tested), so programs that use it can be comp
 (the build command is in the file): a 2.4 MB executable that parses MSL 4.1.0 in 0.13 s.
 
 ## Install
-Either clone the repository and dev it using the standard Julia package tools or you can install it via a registry that contains the package.
-The OpenModelica registry for OpenModelica Julia packages should contain the latest version. See below for how to use that registry.
-###  OpenModelica registry
-OMParser is in the OpenModelica registry:
+Not registered yet. Add it from the repository:
 ```julia
 import Pkg
-Pkg.Registry.add(Pkg.RegistrySpec(url = "https://github.com/OpenModelica/OpenModelicaRegistry.git"))
-Pkg.add("OMParser")
+Pkg.add(url = "https://github.com/JKRT/OpenModelicaParser.jl")
 ```
 
 ## License

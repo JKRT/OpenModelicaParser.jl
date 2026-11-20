@@ -26,11 +26,11 @@ CONDITIONS OF OSMC-PL.
 =#
 
 """
-    OMParser
+    OpenModelicaParser
 
 The Modelica parser of OM.jl, in two modules:
-- `OMParser.Absyn`: the abstract syntax (omc's Absyn records);
-- `OMParser.Parser`: a lexer (`tokenize`) and a recursive-descent parser with one function per
+- `OpenModelicaParser.Absyn`: the abstract syntax (omc's Absyn records);
+- `OpenModelicaParser.Parser`: a lexer (`tokenize`) and a recursive-descent parser with one function per
   grammar rule, written in Julia.
 
 `parseFile` and `parseString` turn Modelica (or MetaModelica, ParModelica, Optimica, PDEModelica)
@@ -38,7 +38,7 @@ source into an `Absyn.Program`, the same trees omc's parser builds. Errors are `
 say what was expected where. `Modelica"..."` (and `@Modelica`, which interpolates) does the same
 for Modelica source written in a Julia file.
 """
-module OMParser
+module OpenModelicaParser
 
 public Absyn, Parser, parseFile, parseString, ParseError
 export @Modelica_str, @Modelica

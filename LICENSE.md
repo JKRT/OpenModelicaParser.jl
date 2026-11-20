@@ -1,6 +1,6 @@
 # License
 
-OMParser.jl is part of OpenModelica.
+OpenModelicaParser.jl is part of OpenModelica.
 
 Copyright (c) 1998-2026, Open Source Modelica Consortium (OSMC),
 c/o Linköpings universitet, Department of Computer and Information Science,

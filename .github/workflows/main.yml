@@ -10,7 +10,6 @@ on:
       - 'COPYING'
       - 'CITATION.bib'
       - '.gitignore'
-      - '.github/workflows/omjl.yml'
   pull_request:
     branches: [ master ]
     paths-ignore:
@@ -20,7 +19,6 @@ on:
       - 'COPYING'
       - 'CITATION.bib'
       - '.gitignore'
-      - '.github/workflows/omjl.yml'
 jobs:
   test:
     runs-on: ${{ matrix.os }}
@@ -62,4 +60,4 @@ jobs:
 
     - name: Test
       shell: bash
-      run: julia --color=yes --project -e 'import Pkg; Pkg.test("OMParser")'
+      run: julia --color=yes --project -e 'import Pkg; Pkg.test("OpenModelicaParser")'

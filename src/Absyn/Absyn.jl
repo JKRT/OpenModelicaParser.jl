@@ -26,11 +26,11 @@ CONDITIONS OF OSMC-PL.
 =#
 
 """
-    OMParser.Absyn
+    OpenModelicaParser.Absyn
 
 The abstract syntax of Modelica and MetaModelica: the records of omc's `Absyn` (OMCompiler/Compiler/FrontEnd/Absyn.mo),
-which `OMParser.Parser` builds and the frontend instantiates. Formerly the package Absyn.jl (1.4.2); `import
-OMParser.Absyn` keeps the name `Absyn` in the code that uses it.
+which `OpenModelicaParser.Parser` builds and the frontend instantiates. Formerly the package Absyn.jl (1.4.2); `import
+OpenModelicaParser.Absyn` keeps the name `Absyn` in the code that uses it.
 """
 module Absyn
 
@@ -893,7 +893,7 @@ end
 
   #= Expression wrapped with before/after comments from the source.
      Upstream signature: EXPRESSIONCOMMENT(list<String>, Exp, list<String>).
-     Not produced by OMParser.jl (expression-level comment collection is missing). =#
+     Not produced by OpenModelicaParser.jl (expression-level comment collection is missing). =#
   @Record EXPRESSIONCOMMENT begin
     commentBefore::List{String}
     exp::Exp

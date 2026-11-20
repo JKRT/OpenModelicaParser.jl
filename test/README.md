@@ -1,10 +1,10 @@
-# Tests of OMParser
+# Tests of OpenModelicaParser
 
-`runtests.jl` runs them (`Pkg.test("OMParser")`).
+`runtests.jl` runs them (`Pkg.test("OpenModelicaParser")`).
 
 ## `msl.mo`: the Modelica Standard Library, under its own license
 
-`msl.mo` is test data. It is not part of OMParser and not under OMParser's license (GPL version 3
+`msl.mo` is test data. It is not part of OpenModelicaParser and not under OpenModelicaParser's license (GPL version 3
 or OSMC-PL, [../LICENSE.md](../LICENSE.md)): it is the Modelica Standard Library, licensed by the
 Modelica Association under the **Modelica License 2**. What follows repeats what the file states;
 the license text inside the file is what counts.
@@ -54,7 +54,7 @@ They are not in this repository: `msl.mo` holds Modelica source only.
 
 ### What the tests do with it
 The file is read and parsed, nothing else: it is not changed, and no part of it is copied into
-OMParser's sources.
+OpenModelicaParser's sources.
 - `runtests.jl`, "Standard Library": the whole file through `parseFile`.
 - `mslExampleTests.jl`: its example models written in a Julia file (below).
 

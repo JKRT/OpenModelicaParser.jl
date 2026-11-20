@@ -26,7 +26,7 @@ CONDITIONS OF OSMC-PL.
 =#
 
 """
-    OMParser.Parser
+    OpenModelicaParser.Parser
 
 The lexer (`tokenize`, Lexer.jl, Tokens.jl) and the recursive-descent parser (Rules.jl, one function
 per rule of omc's grammar), with the entry points `parseFile` and `parseString`.

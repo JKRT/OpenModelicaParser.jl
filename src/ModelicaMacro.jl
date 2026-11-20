@@ -102,7 +102,7 @@ function modelicaExpansion(text::Any, source::LineNumberNode)::Union{QuoteNode, 
   text isa String && return modelicaLiteral(text, source)
   (text isa Expr && text.head === :string) && return modelicaInterpolated(text.args, source)
   throw(ArgumentError("@Modelica takes a string literal with the Modelica text; " *
-                      "a text held in a variable is parsed with OMParser.parseString"))
+                      "a text held in a variable is parsed with OpenModelicaParser.parseString"))
 end
 
 """

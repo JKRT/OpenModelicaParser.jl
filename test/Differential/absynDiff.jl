@@ -2,12 +2,12 @@
 Deep comparison of two Absyn trees: the same types and the same field values everywhere,
 SourceInfo included. Used to check the parser against OMParser 0.2's ANTLR/C parser, loaded from
 its library in the same session. The reference builds the records of the Absyn package (Absyn.jl,
-which must be in the active environment), the parser those of `OMParser.Absyn`: types are compared
+which must be in the active environment), the parser those of `OpenModelicaParser.Absyn`: types are compared
 by name.
 =#
 
 import ImmutableList
-import OMParser
+import OpenModelicaParser
 
 """
     REFERENCE_LIB
@@ -17,7 +17,7 @@ The OMParser 0.2 C library (`libomparse-julia`) the trees are compared against, 
 version and platform, or a build of its `lib/parser`. It finds Absyn, ImmutableList and
 MetaModelica by UUID and calls `OMParser.isDerCref` (defined below for it), so its trees have the
 types of the Absyn package (Absyn.jl, UUID ce2f92e2-a952-11e9-0543-8b443f216f1d), `ReferenceAbsyn`;
-`OMParser.Absyn` has the same records.
+`OpenModelicaParser.Absyn` has the same records.
 """
 const REFERENCE_LIB = get(ENV, "OMPARSER_REFERENCE_LIB", "")
 
@@ -28,7 +28,7 @@ const ReferenceAbsyn = Base.require(Base.PkgId(Base.UUID("ce2f92e2-a952-11e9-054
 """
     referenceIsDerCref(exp::ReferenceAbsyn.Exp)::Bool
 
-`OMParser.Parser.isDerCref` on the reference's records: `der(cref)`. The reference library calls
+`OpenModelicaParser.Parser.isDerCref` on the reference's records: `der(cref)`. The reference library calls
 `OMParser.isDerCref`, defined below to forward here.
 """
 function referenceIsDerCref(exp::ReferenceAbsyn.Exp)::Bool
@@ -43,7 +43,7 @@ function referenceIsDerCref(exp::ReferenceAbsyn.Exp)::Bool
   return args isa ImmutableList.Cons && args.head isa ReferenceAbsyn.CREF && args.tail isa ImmutableList.Nil
 end
 
-isdefined(OMParser, :isDerCref) || Core.eval(OMParser, :(isDerCref(exp) = $referenceIsDerCref(exp)))
+isdefined(OpenModelicaParser, :isDerCref) || Core.eval(OpenModelicaParser, :(isDerCref(exp) = $referenceIsDerCref(exp)))
 
 """
     referenceError()::String
@@ -95,7 +95,7 @@ const SAME_TYPE = Dict{Tuple{DataType, DataType}, Bool}()
 `a` and `b` are the same type up to the module that defines the Absyn records: the same name, the
 same name of the defining module, both abstract or both with the same field names, and the same
 parameters (compared alike).
-`Absyn.CALL` (the reference) and `OMParser.Absyn.CALL` are the same; ImmutableList and
+`Absyn.CALL` (the reference) and `OpenModelicaParser.Absyn.CALL` are the same; ImmutableList and
 MetaModelica types are shared, so they are identical.
 """
 function sameType(a::DataType, b::DataType)::Bool
@@ -196,7 +196,7 @@ end
 """
     compareParsers(file::String; gram::Int = 1, langStd::Int = 9999)
 
-Parse `file` with OMParser 0.2 (`referenceParseFile`) and `OMParser.parseFile` and return `(:same, nothing)`, `(:diff, path)`, `(:bothfail, message)`, `(:oldfail, message)` or
+Parse `file` with OMParser 0.2 (`referenceParseFile`) and `OpenModelicaParser.parseFile` and return `(:same, nothing)`, `(:diff, path)`, `(:bothfail, message)`, `(:oldfail, message)` or
 `(:newfail, message)`.
 """
 function compareParsers(file::String; gram::Int = 1, langStd::Int = 9999)
@@ -210,7 +210,7 @@ function compareParsers(file::String; gram::Int = 1, langStd::Int = 9999)
     oldErr = err
   end
   try
-    new = OMParser.parseFile(file, gram, langStd)
+    new = OpenModelicaParser.parseFile(file, gram, langStd)
   catch err
     newErr = err
   end
@@ -228,7 +228,7 @@ end
 """
     compareStrings(src::String; name::String = "<test>", gram::Int = 1, langStd::Int = 1000)
 
-`compareParsers` for a source string (`referenceParseString` against `OMParser.parseString`).
+`compareParsers` for a source string (`referenceParseString` against `OpenModelicaParser.parseString`).
 """
 function compareStrings(src::String; name::String = "<test>", gram::Int = 1, langStd::Int = 1000)
   local old::Any = nothing
@@ -241,7 +241,7 @@ function compareStrings(src::String; name::String = "<test>", gram::Int = 1, lan
     oldErr = err
   end
   try
-    new = OMParser.parseString(src, name, gram, langStd)
+    new = OpenModelicaParser.parseString(src, name, gram, langStd)
   catch err
     newErr = err
   end

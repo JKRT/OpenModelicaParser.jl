@@ -1,6 +1,6 @@
 using Test
 
-import OMParser
+import OpenModelicaParser
 import MetaModelica
 
 include("dispatchCheck.jl")
@@ -12,7 +12,7 @@ cd(@__DIR__) do
   @testset "Simple standalone modules" begin
     @test true == begin
       try
-        res = OMParser.parseFile("HelloWorld.mo")
+        res = OpenModelicaParser.parseFile("HelloWorld.mo")
         true
       catch err
         @info("Test failed with the following error:")
@@ -23,7 +23,7 @@ cd(@__DIR__) do
 
     @test true == begin
       try
-        res = OMParser.parseFile("Influenza.mo")
+        res = OpenModelicaParser.parseFile("Influenza.mo")
         true
       catch err
         @info("Test failed with the following error:")
@@ -34,7 +34,7 @@ cd(@__DIR__) do
 
     @test true == begin
       try
-        res = OMParser.parseFile("Casc12800.mo")
+        res = OpenModelicaParser.parseFile("Casc12800.mo")
         true
       catch err
         @info("Test failed with the following error:")
@@ -48,7 +48,7 @@ cd(@__DIR__) do
   @testset "Test OMCompiler.jl specific extensions" begin
     @test true == begin
       try
-        res = OMParser.parseFile("BreakingPendulum.mo")
+        res = OpenModelicaParser.parseFile("BreakingPendulum.mo")
         true
       catch err
         @info("Test failed with the following error:")
@@ -61,10 +61,10 @@ cd(@__DIR__) do
   @testset "Syntax error reporting" begin
     function parse_error_message(contents::String, file_name::String)
       try
-        OMParser.parseString(contents, file_name)
+        OpenModelicaParser.parseString(contents, file_name)
         return nothing
       catch err
-        @test err isa OMParser.ParseError
+        @test err isa OpenModelicaParser.ParseError
         return sprint(showerror, err)
       end
     end
@@ -78,7 +78,7 @@ cd(@__DIR__) do
 
     @test true == begin
       try
-        OMParser.parseString(good_contents, "good.mo")
+        OpenModelicaParser.parseString(good_contents, "good.mo")
         true
       catch err
         @info("Test failed with the following error:")
@@ -95,10 +95,10 @@ cd(@__DIR__) do
   @testset "Error messages" begin
     function message(contents::String)::String
       try
-        OMParser.parseString(contents, "e.mo")
+        OpenModelicaParser.parseString(contents, "e.mo")
         return "accepted"
       catch err
-        err isa OMParser.ParseError || rethrow()
+        err isa OpenModelicaParser.ParseError || rethrow()
         return sprint(showerror, err)
       end
     end
@@ -116,20 +116,20 @@ cd(@__DIR__) do
                      "e.mo:2:19: Expected ')' at the end of the modification but found ';'")
     @test startswith(message("model X\n  Real x;\nend X"),
                      "e.mo:3:6: Expected ';' after the class definition but found end of file")
-    local err = try OMParser.parseFile(joinpath(@__DIR__, "NoSuchFile.mo")); nothing catch e; e end
-    @test err isa OMParser.ParseError && err.line == 0
+    local err = try OpenModelicaParser.parseFile(joinpath(@__DIR__, "NoSuchFile.mo")); nothing catch e; e end
+    @test err isa OpenModelicaParser.ParseError && err.line == 0
   end
 
   #= Values from OMParser 0.2's ANTLR parser (the same as omc's). =#
   @testset "Source positions and comments" begin
     #= SOURCEINFO is mutable: compare its fields. =#
     fields(i::MetaModelica.SourceInfo) = ntuple(k -> getfield(i, k), fieldcount(typeof(i)))
-    local p = OMParser.parseString("model A \"doc\"\n  Real x; // c\nequation\n  x = 1;\nend A;\n", "pos.mo")
+    local p = OpenModelicaParser.parseString("model A \"doc\"\n  Real x; // c\nequation\n  x = 1;\nend A;\n", "pos.mo")
     local c = p.classes.head
     @test fields(c.info) == fields(MetaModelica.SOURCEINFO("pos.mo", true, 1, 1, 5, 6, 0.0))
     local elements = c.body.classParts.head.contents
     @test fields(elements.head.element.info) == fields(MetaModelica.SOURCEINFO("pos.mo", true, 2, 3, 2, 9, 0.0))
-    @test elements.tail.head == OMParser.Absyn.LEXER_COMMENT("// c\n")
+    @test elements.tail.head == OpenModelicaParser.Absyn.LEXER_COMMENT("// c\n")
     local eq = c.body.classParts.tail.head.contents.head
     @test fields(eq.info) == fields(MetaModelica.SOURCEINFO("pos.mo", true, 4, 3, 4, 8, 0.0))
   end
@@ -137,7 +137,7 @@ cd(@__DIR__) do
   #= Every call in the parser resolved when compiled: fast, compiled ahead by the precompile
      workload, and a requirement of `juliac --trim=safe`. =#
   @testset "Token names" begin
-    @test all(k -> haskey(OMParser.Parser.TOKEN_NAMES, k), instances(OMParser.Parser.TokenKind))
+    @test all(k -> haskey(OpenModelicaParser.Parser.TOKEN_NAMES, k), instances(OpenModelicaParser.Parser.TokenKind))
   end
 
   @testset "No dynamic dispatch" begin
@@ -154,7 +154,7 @@ cd(@__DIR__) do
   #= Warning might be flaky... =#
   #= Modelica 3.6 selective model extension. =#
   @testset "Break modifiers" begin
-    local p = OMParser.parseString("""
+    local p = OpenModelicaParser.parseString("""
       model B
         extends A(break x, break connect(a.p, b.n), y = 2);
         Real z(start = break) = break;
@@ -164,19 +164,19 @@ cd(@__DIR__) do
     local ext = parts.head.element.specification
     local args = collect(ext.elementArg)
     @test length(args) == 3
-    @test args[1] isa OMParser.Absyn.INHERITANCEBREAK
+    @test args[1] isa OpenModelicaParser.Absyn.INHERITANCEBREAK
     @test args[1].cnct.connector1.name == "break" && args[1].cnct.connector2.name == "x"
-    @test args[2] isa OMParser.Absyn.INHERITANCEBREAK
-    @test args[2].cnct.connector1 isa OMParser.Absyn.CREF_QUAL
-    @test args[3] isa OMParser.Absyn.MODIFICATION
+    @test args[2] isa OpenModelicaParser.Absyn.INHERITANCEBREAK
+    @test args[2].cnct.connector1 isa OpenModelicaParser.Absyn.CREF_QUAL
+    @test args[3] isa OpenModelicaParser.Absyn.MODIFICATION
     local comp = parts.tail.head.element.specification.components.head.component
-    @test comp.modification.data.eqMod.exp isa OMParser.Absyn.BREAK
+    @test comp.modification.data.eqMod.exp isa OpenModelicaParser.Absyn.BREAK
     #= Only extends clauses may break elements. =#
-    @test_throws Exception OMParser.parseString("model M A a(break x); end M;")
+    @test_throws Exception OpenModelicaParser.parseString("model M A a(break x); end M;")
   end
 
   @testset "Subscripted expressions and pure()" begin
-    local p = OMParser.parseString("""
+    local p = OpenModelicaParser.parseString("""
       model S
         Real y = ({1, 2, 3})[2];
         Real z = pure(f(time));
@@ -184,30 +184,30 @@ cd(@__DIR__) do
     """)
     local comps = p.classes.head.body.classParts.head.contents
     local y = comps.head.element.specification.components.head.component.modification.data.eqMod.exp
-    @test y isa OMParser.Absyn.SUBSCRIPTED_EXP
-    @test y.exp isa OMParser.Absyn.ARRAY
+    @test y isa OpenModelicaParser.Absyn.SUBSCRIPTED_EXP
+    @test y.exp isa OpenModelicaParser.Absyn.ARRAY
     local z = comps.tail.head.element.specification.components.head.component.modification.data.eqMod.exp
-    @test z isa OMParser.Absyn.CALL && z.function_.name == "pure"
+    @test z isa OpenModelicaParser.Absyn.CALL && z.function_.name == "pure"
     #= A tuple can not be subscripted. =#
-    @test_throws Exception OMParser.parseString("model M Real y = (1, 2)[1]; end M;")
+    @test_throws Exception OpenModelicaParser.parseString("model M Real y = (1, 2)[1]; end M;")
   end
 
   #= omc's lexer (BaseModelica_Lexer.g): QCHAR includes '"'; IDENT2 includes $Sensitivities and $DER. =#
   @testset "Identifiers as in omc's lexer" begin
-    local p = OMParser.parseString(raw"model 'a\"b' Real y = $DER.x + $Sensitivities; end 'a\"b';")
+    local p = OpenModelicaParser.parseString(raw"model 'a\"b' Real y = $DER.x + $Sensitivities; end 'a\"b';")
     local c = p.classes.head
     @test c.name == raw"'a\"b'"
     local comps = c.body.classParts.head.contents
     local y = comps.head.element.specification.components.head.component.modification.data.eqMod.exp
-    @test y isa OMParser.Absyn.BINARY
-    @test y.exp1.componentRef isa OMParser.Absyn.CREF_QUAL && y.exp1.componentRef.name == raw"$DER"
-    @test y.exp2.componentRef isa OMParser.Absyn.CREF_IDENT && y.exp2.componentRef.name == raw"$Sensitivities"
+    @test y isa OpenModelicaParser.Absyn.BINARY
+    @test y.exp1.componentRef isa OpenModelicaParser.Absyn.CREF_QUAL && y.exp1.componentRef.name == raw"$DER"
+    @test y.exp2.componentRef isa OpenModelicaParser.Absyn.CREF_IDENT && y.exp2.componentRef.name == raw"$Sensitivities"
   end
 
   @testset "Standard Library" begin
     @test true == begin
       try
-        res = OMParser.parseFile("msl.mo")
+        res = OpenModelicaParser.parseFile("msl.mo")
         true
       catch err
         @info("Test failed with the following error:")

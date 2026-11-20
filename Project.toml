@@ -1,7 +1,7 @@
-name = "OMParser"
-uuid = "11f87224-cae7-4e99-a924-e50d12f62c59"
+name = "OpenModelicaParser"
+uuid = "93103b3a-abeb-4d26-8089-9ec101bd0c3c"
 authors = ["John Tinnerholm <john.tinnerholm@liu.se>", "Adrian Pop <adrian.pop@liu.se>"]
-version = "1.1.0"
+version = "1.0.0"
 
 [deps]
 ExportAll = "ad2082ca-a69e-11e9-38fa-e96309a31fe4"
