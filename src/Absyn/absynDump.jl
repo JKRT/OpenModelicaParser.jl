@@ -33,27 +33,18 @@ CONDITIONS OF OSMC-PL.
 
 # --- Path ---
 
-function dumpPath(p::Path)::String
-  @match p begin
-    FULLYQUALIFIED(__) => "." * dumpPath(p.path)
-    QUALIFIED(__) => p.name * "." * dumpPath(p.path)
-    IDENT(__) => p.name
-    _ => "<unknown path>"
-  end
-end
+dumpPath(p::FULLYQUALIFIED)::String = "." * dumpPath(p.path)
+dumpPath(p::QUALIFIED)::String = p.name * "." * dumpPath(p.path)
+dumpPath(p::IDENT)::String = p.name
 
 # --- ComponentRef ---
 
-function dumpCref(cr::ComponentRef)::String
-  @match cr begin
-    CREF_QUAL(__) => cr.name * dumpSubscripts(cr.subscripts) * "." * dumpCref(cr.componentRef)
-    CREF_IDENT(__) => cr.name * dumpSubscripts(cr.subscripts)
-    CREF_FULLYQUALIFIED(__) => "." * dumpCref(cr.componentRef)
-    WILD(__) => "_"
-    ALLWILD(__) => "__"
-    _ => "<unknown cref>"
-  end
-end
+dumpCref(cr::CREF_QUAL)::String = cr.name * dumpSubscripts(cr.subscripts) * "." * dumpCref(cr.componentRef)
+dumpCref(cr::CREF_IDENT)::String = cr.name * dumpSubscripts(cr.subscripts)
+dumpCref(cr::CREF_FULLYQUALIFIED)::String = "." * dumpCref(cr.componentRef)
+dumpCref(::WILD)::String = "_"
+dumpCref(::ALLWILD)::String = "__"
+dumpCref(::ComponentRef)::String = "<unknown cref>"
 
 # --- Subscripts ---
 
@@ -63,63 +54,51 @@ function dumpSubscripts(subs)::String
   "[" * join((dumpSubscript(s) for s in lst), ", ") * "]"
 end
 
-function dumpSubscript(sub::Subscript)::String
-  @match sub begin
-    NOSUB(__) => ":"
-    SUBSCRIPT(__) => dumpExp(sub.subscript)
-    _ => "<unknown subscript>"
-  end
-end
+dumpSubscript(::NOSUB)::String = ":"
+dumpSubscript(sub::SUBSCRIPT)::String = dumpExp(sub.subscript)
 
 # --- Expression ---
 
-function dumpExp(exp::Exp)::String
-  @match exp begin
-    INTEGER(__) => string(exp.value)
-    REAL(__) => exp.value
-    STRING(__) => "\"" * exp.value * "\""
-    BOOL(__) => exp.value ? "true" : "false"
-    CREF(__) => dumpCref(exp.componentRef)
-    BINARY(__) => dumpBinary(exp.exp1, exp.op, exp.exp2, dumpPrecedence(exp))
-    UNARY(__) => dumpOperator(exp.op) * dumpOperand(exp.exp, dumpPrecedence(exp), true)
-    LBINARY(__) => dumpBinary(exp.exp1, exp.op, exp.exp2, dumpPrecedence(exp))
-    LUNARY(__) => dumpOperator(exp.op) * dumpOperand(exp.exp, dumpPrecedence(exp), true)
-    RELATION(__) => dumpOperand(exp.exp1, dumpPrecedence(exp), true) * dumpOperator(exp.op) *
-                    dumpOperand(exp.exp2, dumpPrecedence(exp), true)
-    IFEXP(__) => begin
-      local s = "if " * dumpExp(exp.ifExp) * " then " * dumpExp(exp.trueBranch)
-      for (c, b) in exp.elseIfBranch
-        s = s * " elseif " * dumpExp(c) * " then " * dumpExp(b)
-      end
-      s * " else " * dumpExp(exp.elseBranch)
-    end
-    CALL(__) => begin
-      local fn = dumpCref(exp.function_)
-      local args = dumpFunctionArgs(exp.functionArgs)
-      fn * "(" * args * ")"
-    end
-    PARTEVALFUNCTION(__) => "function " * dumpCref(exp.function_) * "(" * dumpFunctionArgs(exp.functionArgs) * ")"
-    ARRAY(__) => "{" * join((dumpExp(e) for e in exp.arrayExp), ", ") * "}"
-    MATRIX(__) => "[" * join((join((dumpExp(e) for e in row), ", ") for row in exp.matrix), "; ") * "]"
-    RANGE(__) => begin
-      local s = dumpExp(exp.start)
-      if !isnothing(exp.step)
-        s = s * ":" * dumpExp(exp.step.data)
-      end
-      s * ":" * dumpExp(exp.stop)
-    end
-    TUPLE(__) => "(" * join((dumpExp(e) for e in exp.expressions), ", ") * ")"
-    END(__) => "end"
-    CODE(__) => "\$Code(...)"
-    AS(__) => exp.id * " as " * dumpExp(exp.exp)
-    CONS(__) => dumpExp(exp.head) * " :: " * dumpExp(exp.rest)
-    LIST(__) => "{" * join((dumpExp(e) for e in exp.exps), ", ") * "}"
-    DOT(__) => dumpExp(exp.exp) * "." * dumpExp(exp.index)
-    SUBSCRIPTED_EXP(__) => "(" * dumpExp(exp.exp) * ")" * dumpSubscripts(exp.subscripts)
-    EXPRESSIONCOMMENT(__) => dumpExp(exp.exp)
-    _ => "<unknown exp>"
+dumpExp(exp::INTEGER)::String = string(exp.value)
+dumpExp(exp::REAL)::String = exp.value
+dumpExp(exp::STRING)::String = "\"" * exp.value * "\""
+dumpExp(exp::BOOL)::String = exp.value ? "true" : "false"
+dumpExp(exp::CREF)::String = dumpCref(exp.componentRef)
+dumpExp(exp::BINARY)::String = dumpBinary(exp.exp1, exp.op, exp.exp2, dumpPrecedence(exp))
+dumpExp(exp::UNARY)::String = dumpOperator(exp.op) * dumpOperand(exp.exp, dumpPrecedence(exp), true)
+dumpExp(exp::LBINARY)::String = dumpBinary(exp.exp1, exp.op, exp.exp2, dumpPrecedence(exp))
+dumpExp(exp::LUNARY)::String = dumpOperator(exp.op) * dumpOperand(exp.exp, dumpPrecedence(exp), true)
+dumpExp(exp::RELATION)::String =
+  dumpOperand(exp.exp1, dumpPrecedence(exp), true) * dumpOperator(exp.op) * dumpOperand(exp.exp2, dumpPrecedence(exp), true)
+function dumpExp(exp::IFEXP)::String
+  local s::String = "if " * dumpExp(exp.ifExp) * " then " * dumpExp(exp.trueBranch)
+  for (c, b) in exp.elseIfBranch
+    s = s * " elseif " * dumpExp(c) * " then " * dumpExp(b)
   end
+  return s * " else " * dumpExp(exp.elseBranch)
 end
+dumpExp(exp::CALL)::String = dumpCref(exp.function_) * "(" * dumpFunctionArgs(exp.functionArgs) * ")"
+dumpExp(exp::PARTEVALFUNCTION)::String =
+  "function " * dumpCref(exp.function_) * "(" * dumpFunctionArgs(exp.functionArgs) * ")"
+dumpExp(exp::ARRAY)::String = "{" * join((dumpExp(e) for e in exp.arrayExp), ", ") * "}"
+dumpExp(exp::MATRIX)::String = "[" * join((join((dumpExp(e) for e in row), ", ") for row in exp.matrix), "; ") * "]"
+function dumpExp(exp::RANGE)::String
+  local s::String = dumpExp(exp.start)
+  if !isnothing(exp.step)
+    s = s * ":" * dumpExp(exp.step.data)
+  end
+  return s * ":" * dumpExp(exp.stop)
+end
+dumpExp(exp::TUPLE)::String = "(" * join((dumpExp(e) for e in exp.expressions), ", ") * ")"
+dumpExp(::END)::String = "end"
+dumpExp(::CODE)::String = "\$Code(...)"
+dumpExp(exp::AS)::String = exp.id * " as " * dumpExp(exp.exp)
+dumpExp(exp::CONS)::String = dumpExp(exp.head) * " :: " * dumpExp(exp.rest)
+dumpExp(exp::LIST)::String = "{" * join((dumpExp(e) for e in exp.exps), ", ") * "}"
+dumpExp(exp::DOT)::String = dumpExp(exp.exp) * "." * dumpExp(exp.index)
+dumpExp(exp::SUBSCRIPTED_EXP)::String = "(" * dumpExp(exp.exp) * ")" * dumpSubscripts(exp.subscripts)
+dumpExp(exp::EXPRESSIONCOMMENT)::String = dumpExp(exp.exp)
+dumpExp(::Exp)::String = "<unknown exp>"
 
 # --- Precedence: parentheses where Modelica needs them ---
 
@@ -164,114 +143,80 @@ end
 
 # --- Operator ---
 
-function dumpOperator(op::Operator)::String
-  @match op begin
-    ADD(__) => " + "
-    SUB(__) => " - "
-    MUL(__) => "*"
-    DIV(__) => "/"
-    POW(__) => "^"
-    UPLUS(__) => "+"
-    UMINUS(__) => "-"
-    ADD_EW(__) => " .+ "
-    SUB_EW(__) => " .- "
-    MUL_EW(__) => ".*"
-    DIV_EW(__) => "./"
-    POW_EW(__) => ".^"
-    UPLUS_EW(__) => ".+"
-    UMINUS_EW(__) => ".-"
-    AND(__) => " and "
-    OR(__) => " or "
-    NOT(__) => "not "
-    LESS(__) => " < "
-    LESSEQ(__) => " <= "
-    GREATER(__) => " > "
-    GREATEREQ(__) => " >= "
-    EQUAL(__) => " == "
-    NEQUAL(__) => " <> "
-    _ => " <unknown op> "
-  end
-end
+dumpOperator(::ADD)::String = " + "
+dumpOperator(::SUB)::String = " - "
+dumpOperator(::MUL)::String = "*"
+dumpOperator(::DIV)::String = "/"
+dumpOperator(::POW)::String = "^"
+dumpOperator(::UPLUS)::String = "+"
+dumpOperator(::UMINUS)::String = "-"
+dumpOperator(::ADD_EW)::String = " .+ "
+dumpOperator(::SUB_EW)::String = " .- "
+dumpOperator(::MUL_EW)::String = ".*"
+dumpOperator(::DIV_EW)::String = "./"
+dumpOperator(::POW_EW)::String = ".^"
+dumpOperator(::UPLUS_EW)::String = ".+"
+dumpOperator(::UMINUS_EW)::String = ".-"
+dumpOperator(::AND)::String = " and "
+dumpOperator(::OR)::String = " or "
+dumpOperator(::NOT)::String = "not "
+dumpOperator(::LESS)::String = " < "
+dumpOperator(::LESSEQ)::String = " <= "
+dumpOperator(::GREATER)::String = " > "
+dumpOperator(::GREATEREQ)::String = " >= "
+dumpOperator(::EQUAL)::String = " == "
+dumpOperator(::NEQUAL)::String = " <> "
+dumpOperator(::Operator)::String = " <unknown op> "
 
 # --- FunctionArgs ---
 
-function dumpFunctionArgs(args::FunctionArgs)::String
-  @match args begin
-    FUNCTIONARGS(__) => begin
-      local pos = join((dumpExp(a) for a in args.args), ", ")
-      local named = join((dumpNamedArg(na) for na in args.argNames), ", ")
-      if !isempty(pos) && !isempty(named)
-        pos * ", " * named
-      elseif !isempty(pos)
-        pos
-      else
-        named
-      end
-    end
-    FOR_ITER_FARG(__) => begin
-      local e = dumpExp(args.exp)
-      local iters = join((dumpForIterator(i) for i in args.iterators), ", ")
-      local thread = isa(args.iterType, THREAD) ? "threaded " : ""
-      e * " " * thread * "for " * iters
-    end
-    _ => "<unknown args>"
+function dumpFunctionArgs(args::FUNCTIONARGS)::String
+  local pos::String = join((dumpExp(a) for a in args.args), ", ")
+  local named::String = join((dumpNamedArg(na) for na in args.argNames), ", ")
+  if !isempty(pos) && !isempty(named)
+    return pos * ", " * named
   end
+  return isempty(pos) ? named : pos
+end
+function dumpFunctionArgs(args::FOR_ITER_FARG)::String
+  local iters::String = join((dumpForIterator(i) for i in args.iterators), ", ")
+  local thread::String = args.iterType isa THREAD ? "threaded " : ""
+  return dumpExp(args.exp) * " " * thread * "for " * iters
 end
 
-function dumpNamedArg(na::NamedArg)::String
-  @match na begin
-    NAMEDARG(__) => na.argName * " = " * dumpExp(na.argValue)
-    _ => "<unknown named arg>"
-  end
-end
+dumpNamedArg(na::NAMEDARG)::String = na.argName * " = " * dumpExp(na.argValue)
 
-function dumpForIterator(it)::String
-  @match it begin
-    ITERATOR(__) => begin
-      local s = it.name
-      if !isnothing(it.guardExp)
-        s = s * " guard " * dumpExp(it.guardExp.data)
-      end
-      if !isnothing(it.range)
-        s = s * " in " * dumpExp(it.range.data)
-      end
-      s
-    end
-    _ => "<unknown iterator>"
+function dumpForIterator(it::ITERATOR)::String
+  local s::String = it.name
+  if !isnothing(it.guardExp)
+    s = s * " guard " * dumpExp(it.guardExp.data)
   end
+  if !isnothing(it.range)
+    s = s * " in " * dumpExp(it.range.data)
+  end
+  return s
 end
 
 # --- TypeSpec ---
 
-function dumpTypeSpec(ts::TypeSpec)::String
-  @match ts begin
-    TPATH(__) => begin
-      local s = dumpPath(ts.path)
-      if !isnothing(ts.arrayDim)
-        s = s * dumpSubscripts(collect(ts.arrayDim.data))
-      end
-      s
-    end
-    TCOMPLEX(__) => begin
-      local p = dumpPath(ts.path)
-      local tys = join((dumpTypeSpec(t) for t in ts.typeSpecs), ", ")
-      local s = p * "<" * tys * ">"
-      if !isnothing(ts.arrayDim)
-        s = s * dumpSubscripts(collect(ts.arrayDim.data))
-      end
-      s
-    end
-    _ => "<unknown typespec>"
+function dumpTypeSpec(ts::TPATH)::String
+  local s::String = dumpPath(ts.path)
+  if !isnothing(ts.arrayDim)
+    s = s * dumpSubscripts(collect(ts.arrayDim.data))
   end
+  return s
+end
+function dumpTypeSpec(ts::TCOMPLEX)::String
+  local s::String = dumpPath(ts.path) * "<" * join((dumpTypeSpec(t) for t in ts.typeSpecs), ", ") * ">"
+  if !isnothing(ts.arrayDim)
+    s = s * dumpSubscripts(collect(ts.arrayDim.data))
+  end
+  return s
 end
 
 # --- Direction ---
 
-function dumpDirection(dir::Direction)::String
-  @match dir begin
-    BIDIR(__) => ""
-    INPUT(__) => "input "
-    OUTPUT(__) => "output "
-    _ => ""
-  end
-end
+dumpDirection(::BIDIR)::String = ""
+dumpDirection(::INPUT)::String = "input "
+dumpDirection(::OUTPUT)::String = "output "
+dumpDirection(::Direction)::String = ""

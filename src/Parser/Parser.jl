@@ -35,7 +35,6 @@ module Parser
 
 import ..Absyn
 import ImmutableList
-import MetaModelica
 
 public parseFile, parseString, ParseError, tokenize
 

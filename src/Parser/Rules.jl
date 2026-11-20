@@ -36,8 +36,8 @@ order.
 
 const NIL = ImmutableList.ListDef.nil
 const consU = ImmutableList.ListDef.cons
-const listRev = MetaModelica.listReverse
-const SOME = MetaModelica.SOME
+const listRev = ImmutableList.listReverse
+const SOME = ImmutableList.SOME
 
 """
 The array constructor's function name when it has iterators (`{e for i in r}`).
@@ -119,18 +119,18 @@ end
 @inline text(p::ParserState, i::Int)::String = tokenText(p.ts, i)
 
 """
-    info(p::ParserState, startToken::Int)::MetaModelica.SourceInfo
+    info(p::ParserState, startToken::Int)::ImmutableList.SourceInfo
 
 `PARSER_INFO(start)`: from token `startToken` to the next token. Columns are ANTLR's character
 positions plus one (plus two for a start on the first line), lines and columns of bytes.
 """
-function info(p::ParserState, startToken::Int)::MetaModelica.SourceInfo
+function info(p::ParserState, startToken::Int)::ImmutableList.SourceInfo
   local ts::Tokens = p.ts
   local line1::Int = Int(@inbounds ts.line[startToken])
   local col1::Int = Int(@inbounds ts.rawColumn[startToken]) + (line1 == ts.firstLine ? 2 : 1)
   local line2::Int = Int(@inbounds ts.line[p.pos])
   local col2::Int = Int(@inbounds ts.rawColumn[p.pos]) + 1
-  return MetaModelica.SOURCEINFO(p.fileName, p.readOnly, line1, col1, line2, col2, 0.0)
+  return ImmutableList.SOURCEINFO(p.fileName, p.readOnly, line1, col1, line2, col2, 0.0)
 end
 
 #= Errors =#
@@ -2954,7 +2954,7 @@ function onecase(p::ParserState)::Absyn.Case
   local start::Int = expect!(p, TK_CASE)
   local patStart::Int = p.pos
   local pat::Absyn.Exp = expression(p, false)
-  local patInfo::MetaModelica.SourceInfo = info(p, patStart)
+  local patInfo::ImmutableList.SourceInfo = info(p, patStart)
   local guard::Union{Nothing, Absyn.Exp} = nothing
   if la(p) == TK_IF || la(p) == TK_GUARD
     advance!(p)
