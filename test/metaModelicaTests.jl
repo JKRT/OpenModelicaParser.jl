@@ -7,7 +7,6 @@ module MetaModelicaTests
 using Test
 import OpenModelicaParser
 import OpenModelicaParser.Absyn
-import ImmutableList: SOME
 
 """Parse MetaModelica source: `acceptedGram` 2 selects MetaModelica, `languageStandard` 9999 is experimental."""
 function mmParse(code::String)::Absyn.Program
@@ -265,8 +264,8 @@ end
   local c1::Absyn.Case = first(matchCases(prog))
   @test c1 isa Absyn.CASE && isInteger(c1.pattern, 1) && isInteger(c1.result, 10)
   #= The guard is SOME(x > 0) =#
-  @test c1.patternGuard isa SOME
-  local guard::Absyn.Exp = c1.patternGuard.data
+  @test c1.patternGuard isa Some
+  local guard::Absyn.Exp = c1.patternGuard.value
   @test guard isa Absyn.RELATION
   @test guard.op isa Absyn.GREATER
 end

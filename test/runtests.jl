@@ -1,7 +1,6 @@
 using Test
 
 import OpenModelicaParser
-import ImmutableList
 
 include("dispatchCheck.jl")
 include("absynTests.jl")
@@ -123,15 +122,15 @@ cd(@__DIR__) do
   #= Values from OMParser 0.2's ANTLR parser (the same as omc's). =#
   @testset "Source positions and comments" begin
     #= SOURCEINFO is mutable: compare its fields. =#
-    fields(i::ImmutableList.SourceInfo) = ntuple(k -> getfield(i, k), fieldcount(typeof(i)))
+    fields(i::OpenModelicaParser.Absyn.SourceInfo) = ntuple(k -> getfield(i, k), fieldcount(typeof(i)))
     local p = OpenModelicaParser.parseString("model A \"doc\"\n  Real x; // c\nequation\n  x = 1;\nend A;\n", "pos.mo")
     local c = p.classes.head
-    @test fields(c.info) == fields(ImmutableList.SOURCEINFO("pos.mo", true, 1, 1, 5, 6, 0.0))
+    @test fields(c.info) == fields(OpenModelicaParser.Absyn.SOURCEINFO("pos.mo", true, 1, 1, 5, 6, 0.0))
     local elements = c.body.classParts.head.contents
-    @test fields(elements.head.element.info) == fields(ImmutableList.SOURCEINFO("pos.mo", true, 2, 3, 2, 9, 0.0))
+    @test fields(elements.head.element.info) == fields(OpenModelicaParser.Absyn.SOURCEINFO("pos.mo", true, 2, 3, 2, 9, 0.0))
     @test elements.tail.head == OpenModelicaParser.Absyn.LEXER_COMMENT("// c\n")
     local eq = c.body.classParts.tail.head.contents.head
-    @test fields(eq.info) == fields(ImmutableList.SOURCEINFO("pos.mo", true, 4, 3, 4, 8, 0.0))
+    @test fields(eq.info) == fields(OpenModelicaParser.Absyn.SOURCEINFO("pos.mo", true, 4, 3, 4, 8, 0.0))
   end
 
   #= Every call in the parser resolved when compiled: fast, compiled ahead by the precompile
@@ -170,7 +169,7 @@ cd(@__DIR__) do
     @test args[2].cnct.connector1 isa OpenModelicaParser.Absyn.CREF_QUAL
     @test args[3] isa OpenModelicaParser.Absyn.MODIFICATION
     local comp = parts.tail.head.element.specification.components.head.component
-    @test comp.modification.data.eqMod.exp isa OpenModelicaParser.Absyn.BREAK
+    @test comp.modification.value.eqMod.exp isa OpenModelicaParser.Absyn.BREAK
     #= Only extends clauses may break elements. =#
     @test_throws Exception OpenModelicaParser.parseString("model M A a(break x); end M;")
   end
@@ -183,10 +182,10 @@ cd(@__DIR__) do
       end S;
     """)
     local comps = p.classes.head.body.classParts.head.contents
-    local y = comps.head.element.specification.components.head.component.modification.data.eqMod.exp
+    local y = comps.head.element.specification.components.head.component.modification.value.eqMod.exp
     @test y isa OpenModelicaParser.Absyn.SUBSCRIPTED_EXP
     @test y.exp isa OpenModelicaParser.Absyn.ARRAY
-    local z = comps.tail.head.element.specification.components.head.component.modification.data.eqMod.exp
+    local z = comps.tail.head.element.specification.components.head.component.modification.value.eqMod.exp
     @test z isa OpenModelicaParser.Absyn.CALL && z.function_.name == "pure"
     #= A tuple can not be subscripted. =#
     @test_throws Exception OpenModelicaParser.parseString("model M Real y = (1, 2)[1]; end M;")
@@ -198,7 +197,7 @@ cd(@__DIR__) do
     local c = p.classes.head
     @test c.name == raw"'a\"b'"
     local comps = c.body.classParts.head.contents
-    local y = comps.head.element.specification.components.head.component.modification.data.eqMod.exp
+    local y = comps.head.element.specification.components.head.component.modification.value.eqMod.exp
     @test y isa OpenModelicaParser.Absyn.BINARY
     @test y.exp1.componentRef isa OpenModelicaParser.Absyn.CREF_QUAL && y.exp1.componentRef.name == raw"$DER"
     @test y.exp2.componentRef isa OpenModelicaParser.Absyn.CREF_IDENT && y.exp2.componentRef.name == raw"$Sensitivities"

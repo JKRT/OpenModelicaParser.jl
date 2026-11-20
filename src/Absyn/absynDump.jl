@@ -85,7 +85,7 @@ dumpExp(exp::MATRIX)::String = "[" * join((join((dumpExp(e) for e in row), ", ")
 function dumpExp(exp::RANGE)::String
   local s::String = dumpExp(exp.start)
   if !isnothing(exp.step)
-    s = s * ":" * dumpExp(exp.step.data)
+    s = s * ":" * dumpExp(exp.step.value)
   end
   return s * ":" * dumpExp(exp.stop)
 end
@@ -189,10 +189,10 @@ dumpNamedArg(na::NAMEDARG)::String = na.argName * " = " * dumpExp(na.argValue)
 function dumpForIterator(it::ITERATOR)::String
   local s::String = it.name
   if !isnothing(it.guardExp)
-    s = s * " guard " * dumpExp(it.guardExp.data)
+    s = s * " guard " * dumpExp(it.guardExp.value)
   end
   if !isnothing(it.range)
-    s = s * " in " * dumpExp(it.range.data)
+    s = s * " in " * dumpExp(it.range.value)
   end
   return s
 end
@@ -202,14 +202,14 @@ end
 function dumpTypeSpec(ts::TPATH)::String
   local s::String = dumpPath(ts.path)
   if !isnothing(ts.arrayDim)
-    s = s * dumpSubscripts(collect(ts.arrayDim.data))
+    s = s * dumpSubscripts(collect(ts.arrayDim.value))
   end
   return s
 end
 function dumpTypeSpec(ts::TCOMPLEX)::String
   local s::String = dumpPath(ts.path) * "<" * join((dumpTypeSpec(t) for t in ts.typeSpecs), ", ") * ">"
   if !isnothing(ts.arrayDim)
-    s = s * dumpSubscripts(collect(ts.arrayDim.data))
+    s = s * dumpSubscripts(collect(ts.arrayDim.value))
   end
   return s
 end

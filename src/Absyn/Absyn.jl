@@ -37,6 +37,51 @@ module Absyn
 using ImmutableList
 #= ExportAll is not good practice but it makes it so that we do not have to write export after each function :( =#
 using ExportAll
+
+"""
+`Option{T}`: `Union{Some{T}, Nothing}`, MetaModelica's optional type. In a submodule, used without importing the name,
+so `@exportAll` does not export it: MetaModelica exports `Option`, and two exported bindings of one name clash in code
+that uses both.
+"""
+module Optional
+const Option{T} = Union{Some{T}, Nothing}
+export Option
+end
+using .Optional
+
+"""
+    SourceInfo
+
+Where a syntax element or class is in the source (omc's `SourceInfo`, formerly MetaModelica's).
+"""
+abstract type SourceInfo end
+
+"""
+    SOURCEINFO(fileName, isReadOnly, lineNumberStart, columnNumberStart, lineNumberEnd, columnNumberEnd[,
+               lastModification])
+
+The file (`isReadOnly`: true for libraries), the start and end positions, and the file's modification time (stat(2)
+mtime as Float64; 0.0 when not given).
+"""
+mutable struct SOURCEINFO <: SourceInfo
+  fileName::String
+  isReadOnly::Bool
+  lineNumberStart::Int
+  columnNumberStart::Int
+  lineNumberEnd::Int
+  columnNumberEnd::Int
+  lastModification::Float64
+end
+
+SOURCEINFO(fileName::String, isReadOnly::Bool, lineNumberStart::Int, columnNumberStart::Int, lineNumberEnd::Int,
+           columnNumberEnd::Int) =
+  SOURCEINFO(fileName, isReadOnly, lineNumberStart, columnNumberStart, lineNumberEnd, columnNumberEnd, 0.0)
+
+"""The source info of a value made without a source."""
+const DEFAULT_INFO = SOURCEINFO("", true, 1, 2, 3, 4, 0.0)
+
+"""MetaModelica's `sourceInfo()`: [`DEFAULT_INFO`](@ref)."""
+sourceInfo()::SOURCEINFO = DEFAULT_INFO
 #= Necessary to write declarations for your uniontypes until Julia adds support for mutually recursive types =#
 
 abstract type ForIterator end
@@ -134,7 +179,7 @@ indicates the hieractical position of the program. =#
   struct TOP <: Within
   end
 
-Info = SourceInfo
+const Info = SourceInfo
 
 #= A class definition consists of a name, a flag to indicate
 if this class is declared as partial, the declared class restriction,

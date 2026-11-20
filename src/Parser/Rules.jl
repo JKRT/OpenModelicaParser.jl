@@ -28,7 +28,7 @@ CONDITIONS OF OSMC-PL.
 #=
 The parser: one function per rule of omc's ANTLR grammar (`OMCompiler/Parser/Modelica.g` in the
 OpenModelica repository), building the same Absyn values with the same calls as its actions (the
-constructors, `SOME`, typed and untyped `cons`, `listReverse`), so the trees are identical,
+constructors, `Some`, typed and untyped `cons`, `listReverse`), so the trees are identical,
 SourceInfo and comment items included.
 Recursive list rules are loops that cons from the end, which makes the same calls in the same
 order.
@@ -37,7 +37,6 @@ order.
 const NIL = ImmutableList.ListDef.nil
 const consU = ImmutableList.ListDef.cons
 const listRev = ImmutableList.listReverse
-const SOME = ImmutableList.SOME
 
 """
 The array constructor's function name when it has iterators (`{e for i in r}`).
@@ -119,18 +118,18 @@ end
 @inline text(p::ParserState, i::Int)::String = tokenText(p.ts, i)
 
 """
-    info(p::ParserState, startToken::Int)::ImmutableList.SourceInfo
+    info(p::ParserState, startToken::Int)::Absyn.SourceInfo
 
 `PARSER_INFO(start)`: from token `startToken` to the next token. Columns are ANTLR's character
 positions plus one (plus two for a start on the first line), lines and columns of bytes.
 """
-function info(p::ParserState, startToken::Int)::ImmutableList.SourceInfo
+function info(p::ParserState, startToken::Int)::Absyn.SourceInfo
   local ts::Tokens = p.ts
   local line1::Int = Int(@inbounds ts.line[startToken])
   local col1::Int = Int(@inbounds ts.rawColumn[startToken]) + (line1 == ts.firstLine ? 2 : 1)
   local line2::Int = Int(@inbounds ts.line[p.pos])
   local col2::Int = Int(@inbounds ts.rawColumn[p.pos]) + 1
-  return ImmutableList.SOURCEINFO(p.fileName, p.readOnly, line1, col1, line2, col2, 0.0)
+  return Absyn.SOURCEINFO(p.fileName, p.readOnly, line1, col1, line2, col2, 0.0)
 end
 
 #= Errors =#
@@ -319,16 +318,16 @@ end
 #= Helpers mirroring the C macros =#
 
 @inline someOrNone(x::Nothing)::Nothing = nothing
-@inline someOrNone(x::T) where {T} = SOME(x)
+@inline someOrNone(x::T) where {T} = Some(x)
 
 """
-    someOf(::Type{T}, x::Union{Nothing, T})::Union{Nothing, SOME{T}}
+    someOf(::Type{T}, x::Union{Nothing, T})::Union{Nothing, Some{T}}
 
-`SOME(x)` (or `nothing`) as a field of type `Option{T}` holds it: the constructors convert a
-`SOME{S}` to `SOME{T}`. With the field's type the constructor call is resolved when compiled, also
+`Some(x)` (or `nothing`) as a field of type `Option{T}` holds it: the constructors convert a
+`Some{S}` to `Some{T}`. With the field's type the constructor call is resolved when compiled, also
 when `T` is abstract.
 """
-@inline someOf(::Type{T}, x::Union{Nothing, T}) where {T} = x === nothing ? nothing : SOME{T}(x)
+@inline someOf(::Type{T}, x::Union{Nothing, T}) where {T} = x === nothing ? nothing : Some{T}(x)
 
 """
     consT(::Type{T}, head::T, tail::Union{ImmutableList.ListDef.Nil, ImmutableList.ListDef.Cons{T}})::ImmutableList.ListDef.Cons{T}
@@ -830,9 +829,9 @@ function element(p::ParserState)::Absyn.Element
       constr = constrainingClauseComment(p)
     end
     local replRedecl::Absyn.RedeclareKeywords = r ? Absyn.REDECLARE_REPLACEABLE() : Absyn.REPLACEABLE()
-    return Absyn.ELEMENT(f, SOME(replRedecl), innerouter, spec, info(p, start), someOrNone(constr))
+    return Absyn.ELEMENT(f, Some(replRedecl), innerouter, spec, info(p, start), someOrNone(constr))
   end
-  local redecl::Union{Nothing, SOME{Absyn.REDECLARE}} = r ? SOME(Absyn.REDECLARE()) : nothing
+  local redecl::Union{Nothing, Some{Absyn.REDECLARE}} = r ? Some(Absyn.REDECLARE()) : nothing
   if startsClassDefinition(la(p))
     local cdef::Absyn.Class = classDefinition(p, f)
     return Absyn.ELEMENT(f, redecl, innerouter, Absyn.CLASSDEF(false, cdef), info(p, start), nothing)
@@ -2051,7 +2050,7 @@ function simpleExpr(p::ParserState)::Absyn.Exp
   if la(p) == TK_COLON
     advance!(p)
     local e3::Absyn.Exp = logicalExpression(p)
-    return Absyn.RANGE(e1, SOME{Absyn.Exp}(e2), e3)
+    return Absyn.RANGE(e1, Some{Absyn.Exp}(e2), e3)
   end
   return Absyn.RANGE(e1, nothing, e2)
 end
@@ -2698,8 +2697,8 @@ function comment(p::ParserState)::Union{Nothing, Absyn.Comment}
   local cmt::Union{Nothing, String} = stringComment(p)
   local ann::Union{Nothing, Absyn.Annotation} = la(p) == TK_ANNOTATION ? annotation(p) : nothing
   if cmt !== nothing || ann !== nothing
-    local annOpt::Union{Nothing, SOME{Absyn.Annotation}} = someOrNone(ann)
-    local cmtOpt::Union{Nothing, SOME{String}} = someOrNone(cmt)
+    local annOpt::Union{Nothing, Some{Absyn.Annotation}} = someOrNone(ann)
+    local cmtOpt::Union{Nothing, Some{String}} = someOrNone(cmt)
     return Absyn.COMMENT(annOpt, cmtOpt)
   end
   return nothing
@@ -2954,7 +2953,7 @@ function onecase(p::ParserState)::Absyn.Case
   local start::Int = expect!(p, TK_CASE)
   local patStart::Int = p.pos
   local pat::Absyn.Exp = expression(p, false)
-  local patInfo::ImmutableList.SourceInfo = info(p, patStart)
+  local patInfo::Absyn.SourceInfo = info(p, patStart)
   local guard::Union{Nothing, Absyn.Exp} = nothing
   if la(p) == TK_IF || la(p) == TK_GUARD
     advance!(p)
