@@ -1,7 +1,7 @@
 using Test
 
 import OpenModelicaParser
-import MetaModelica
+import ImmutableList
 
 include("dispatchCheck.jl")
 include("absynTests.jl")
@@ -123,15 +123,15 @@ cd(@__DIR__) do
   #= Values from OMParser 0.2's ANTLR parser (the same as omc's). =#
   @testset "Source positions and comments" begin
     #= SOURCEINFO is mutable: compare its fields. =#
-    fields(i::MetaModelica.SourceInfo) = ntuple(k -> getfield(i, k), fieldcount(typeof(i)))
+    fields(i::ImmutableList.SourceInfo) = ntuple(k -> getfield(i, k), fieldcount(typeof(i)))
     local p = OpenModelicaParser.parseString("model A \"doc\"\n  Real x; // c\nequation\n  x = 1;\nend A;\n", "pos.mo")
     local c = p.classes.head
-    @test fields(c.info) == fields(MetaModelica.SOURCEINFO("pos.mo", true, 1, 1, 5, 6, 0.0))
+    @test fields(c.info) == fields(ImmutableList.SOURCEINFO("pos.mo", true, 1, 1, 5, 6, 0.0))
     local elements = c.body.classParts.head.contents
-    @test fields(elements.head.element.info) == fields(MetaModelica.SOURCEINFO("pos.mo", true, 2, 3, 2, 9, 0.0))
+    @test fields(elements.head.element.info) == fields(ImmutableList.SOURCEINFO("pos.mo", true, 2, 3, 2, 9, 0.0))
     @test elements.tail.head == OpenModelicaParser.Absyn.LEXER_COMMENT("// c\n")
     local eq = c.body.classParts.tail.head.contents.head
-    @test fields(eq.info) == fields(MetaModelica.SOURCEINFO("pos.mo", true, 4, 3, 4, 8, 0.0))
+    @test fields(eq.info) == fields(ImmutableList.SOURCEINFO("pos.mo", true, 4, 3, 4, 8, 0.0))
   end
 
   #= Every call in the parser resolved when compiled: fast, compiled ahead by the precompile

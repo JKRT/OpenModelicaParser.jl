@@ -1,30 +1,62 @@
+"""
+Tests of the MetaModelica grammar: uniontypes, match and matchcontinue expressions, patterns, lists, try. The trees are
+read through their fields (`isa` and field access), so the tests need no MetaModelica.
+"""
+module MetaModelicaTests
+
 using Test
-using MetaModelica
 import OpenModelicaParser
 import OpenModelicaParser.Absyn
+import ImmutableList: SOME
 
-#= Helper: parse a MetaModelica string.
-   acceptedGram=2 selects MetaModelica, languageStandard=9999 is experimental. =#
+"""Parse MetaModelica source: `acceptedGram` 2 selects MetaModelica, `languageStandard` 9999 is experimental."""
 function mmParse(code::String)::Absyn.Program
-  OpenModelicaParser.parseString(code, "<test>", 2, 9999)
+  return OpenModelicaParser.parseString(code, "<test>", 2, 9999)
 end
 
-#= Helper: extract the first class from a parsed program =#
-function firstClass(prog::Absyn.Program)::Absyn.Class
-  @match Absyn.PROGRAM(classes, _) = prog
-  @match cls <| _ = classes
-  cls
+"""The first class of a parsed program."""
+function firstClass(prog::Absyn.Program)::Absyn.CLASS
+  return first(collect(prog.classes))::Absyn.CLASS
 end
 
-#= Helper: extract the body of the first class =#
-function firstClassBody(prog::Absyn.Program)::Absyn.ClassDef
-  cls = firstClass(prog)
-  @match Absyn.CLASS(_, _, _, _, _, body, _) = cls
-  body
+"""The class parts of the first class (its body is `PARTS`)."""
+function firstClassParts(prog::Absyn.Program)::Vector{Absyn.ClassPart}
+  return collect((firstClass(prog).body::Absyn.PARTS).classParts)
 end
+
+"""The statements of the first class's algorithm section."""
+function algorithmItems(prog::Absyn.Program)::Vector{Absyn.AlgorithmItem}
+  local sections::Vector{Absyn.ClassPart} = filter(p -> p isa Absyn.ALGORITHMS, firstClassParts(prog))
+  @test length(sections) == 1
+  return collect((first(sections)::Absyn.ALGORITHMS).contents)
+end
+
+"""The right-hand side of the first assignment in the first class's algorithm section."""
+function firstAssignedValue(prog::Absyn.Program)::Absyn.Exp
+  local alg::Absyn.Algorithm = first(algorithmItems(prog)).algorithm_
+  @test alg isa Absyn.ALG_ASSIGN
+  return (alg::Absyn.ALG_ASSIGN).value
+end
+
+"""The cases of the match expression assigned first in the first class's algorithm section."""
+function matchCases(prog::Absyn.Program)::Vector{Absyn.Case}
+  local exp::Absyn.Exp = firstAssignedValue(prog)
+  @test exp isa Absyn.MATCHEXP
+  return collect((exp::Absyn.MATCHEXP).cases)
+end
+
+"""True for `CREF(CREF_IDENT(name, _))`."""
+isIdentCref(exp::Absyn.Exp, name::String)::Bool =
+  exp isa Absyn.CREF && exp.componentRef isa Absyn.CREF_IDENT && exp.componentRef.name == name
+
+"""True for `CREF(WILD())`, the wildcard `_`."""
+isWild(exp::Absyn.Exp)::Bool = exp isa Absyn.CREF && exp.componentRef isa Absyn.WILD
+
+"""True for an integer literal of the given value."""
+isInteger(exp::Absyn.Exp, value::Int)::Bool = exp isa Absyn.INTEGER && exp.value == value
 
 @testset "MetaModelica: Uniontype" begin
-  prog = mmParse("""
+  local prog::Absyn.Program = mmParse("""
     uniontype MyOption
       record SOME
         Real value;
@@ -33,25 +65,24 @@ end
       end NONE;
     end MyOption;
   """)
-  cls = firstClass(prog)
-  @match Absyn.CLASS(name, _, _, _, restriction, body, _) = cls
-  @test name == "MyOption"
-  @test restriction isa Absyn.R_UNIONTYPE
-  @match Absyn.PARTS(_, _, classParts, _, _) = body
-  #= Should have a PUBLIC section with two record definitions =#
-  @match pub <| _ = classParts
-  @match Absyn.PUBLIC(contents) = pub
-  #= Two records: SOME and NONE =#
-  @match item1 <| (item2 <| _) = contents
-  @match Absyn.ELEMENTITEM(Absyn.ELEMENT(_, _, _, Absyn.CLASSDEF(_, someClass), _, _)) = item1
-  @match Absyn.CLASS("SOME", _, _, _, Absyn.R_RECORD(), _, _) = someClass
-  @match Absyn.ELEMENTITEM(Absyn.ELEMENT(_, _, _, Absyn.CLASSDEF(_, noneClass), _, _)) = item2
-  @match Absyn.CLASS("NONE", _, _, _, Absyn.R_RECORD(), _, _) = noneClass
-  @test true
+  local cls::Absyn.CLASS = firstClass(prog)
+  @test cls.name == "MyOption"
+  @test cls.restriction isa Absyn.R_UNIONTYPE
+  local parts::Vector{Absyn.ClassPart} = firstClassParts(prog)
+  @test first(parts) isa Absyn.PUBLIC
+  local contents::Vector{Absyn.ElementItem} = collect((first(parts)::Absyn.PUBLIC).contents)
+  @test length(contents) == 2
+  for (item, name) in zip(contents, ("SOME", "NONE"))
+    @test item isa Absyn.ELEMENTITEM
+    local spec::Absyn.ElementSpec = (item::Absyn.ELEMENTITEM).element.specification
+    @test spec isa Absyn.CLASSDEF
+    @test spec.class_.name == name
+    @test spec.class_.restriction isa Absyn.R_RECORD
+  end
 end
 
 @testset "MetaModelica: Match expression" begin
-  prog = mmParse("""
+  local prog::Absyn.Program = mmParse("""
     function testMatch
       input Integer x;
       output Integer y;
@@ -63,35 +94,21 @@ end
       end match;
     end testMatch;
   """)
-  cls = firstClass(prog)
-  @match Absyn.CLASS("testMatch", _, _, _, Absyn.R_FUNCTION(Absyn.FR_NORMAL_FUNCTION(Absyn.NO_PURITY())), body, _) = cls
-  @match Absyn.PARTS(_, _, classParts, _, _) = body
-  #= Find the algorithm section =#
-  algSection = nothing
-  for part in classParts
-    if part isa Absyn.ALGORITHMS
-      algSection = part
-    end
-  end
-  @test algSection !== nothing
-  @match Absyn.ALGORITHMS(algItems) = algSection
-  @match algItem <| _ = algItems
-  @match Absyn.ALGORITHMITEM(Absyn.ALG_ASSIGN(_, matchExp), _, _) = algItem
-  @match Absyn.MATCHEXP(Absyn.MATCH(), _, _, cases, _) = matchExp
-  #= Should have 3 cases: case 1, case 2, else =#
-  @match c1 <| (c2 <| (c3 <| _)) = cases
-  @test c1 isa Absyn.CASE
-  @test c2 isa Absyn.CASE
-  @test c3 isa Absyn.ELSE
-  #= Check case 1 pattern and result =#
-  @match Absyn.CASE(Absyn.INTEGER(1), _, _, _, _, Absyn.INTEGER(10), _, _, _) = c1
-  @match Absyn.CASE(Absyn.INTEGER(2), _, _, _, _, Absyn.INTEGER(20), _, _, _) = c2
-  @match Absyn.ELSE(_, _, Absyn.INTEGER(0), _, _, _) = c3
-  @test true
+  local cls::Absyn.CLASS = firstClass(prog)
+  @test cls.name == "testMatch"
+  @test cls.restriction isa Absyn.R_FUNCTION
+  @test cls.restriction.functionRestriction isa Absyn.FR_NORMAL_FUNCTION
+  @test cls.restriction.functionRestriction.purity isa Absyn.NO_PURITY
+  @test (firstAssignedValue(prog)::Absyn.MATCHEXP).matchTy isa Absyn.MATCH
+  local cases::Vector{Absyn.Case} = matchCases(prog)
+  @test length(cases) == 3
+  @test cases[1] isa Absyn.CASE && isInteger(cases[1].pattern, 1) && isInteger(cases[1].result, 10)
+  @test cases[2] isa Absyn.CASE && isInteger(cases[2].pattern, 2) && isInteger(cases[2].result, 20)
+  @test cases[3] isa Absyn.ELSE && isInteger(cases[3].result, 0)
 end
 
 @testset "MetaModelica: Matchcontinue expression" begin
-  prog = mmParse("""
+  local prog::Absyn.Program = mmParse("""
     function testMC
       input Integer x;
       output Integer y;
@@ -102,26 +119,15 @@ end
       end matchcontinue;
     end testMC;
   """)
-  cls = firstClass(prog)
-  @match Absyn.PARTS(_, _, classParts, _, _) = firstClassBody(prog)
-  algSection = nothing
-  for part in classParts
-    if part isa Absyn.ALGORITHMS
-      algSection = part
-    end
-  end
-  @test algSection !== nothing
-  @match Absyn.ALGORITHMS(algItems) = algSection
-  @match algItem <| _ = algItems
-  @match Absyn.ALGORITHMITEM(Absyn.ALG_ASSIGN(_, matchExp), _, _) = algItem
-  @match Absyn.MATCHEXP(Absyn.MATCHCONTINUE(), _, _, cases, _) = matchExp
-  @match c1 <| (c2 <| _) = cases
-  @test c1 isa Absyn.CASE
-  @test c2 isa Absyn.ELSE
+  @test (firstAssignedValue(prog)::Absyn.MATCHEXP).matchTy isa Absyn.MATCHCONTINUE
+  local cases::Vector{Absyn.Case} = matchCases(prog)
+  @test length(cases) == 2
+  @test cases[1] isa Absyn.CASE
+  @test cases[2] isa Absyn.ELSE
 end
 
 @testset "MetaModelica: List cons operator (::)" begin
-  prog = mmParse("""
+  local prog::Absyn.Program = mmParse("""
     function testCons
       input Integer h;
       input list<Integer> t;
@@ -130,49 +136,28 @@ end
       result := h :: t;
     end testCons;
   """)
-  @match Absyn.PARTS(_, _, classParts, _, _) = firstClassBody(prog)
-  algSection = nothing
-  for part in classParts
-    if part isa Absyn.ALGORITHMS
-      algSection = part
-    end
-  end
-  @test algSection !== nothing
-  @match Absyn.ALGORITHMS(algItems) = algSection
-  @match algItem <| _ = algItems
-  @match Absyn.ALGORITHMITEM(Absyn.ALG_ASSIGN(_, consExp), _, _) = algItem
-  @match Absyn.CONS(head, rest) = consExp
-  @match Absyn.CREF(Absyn.CREF_IDENT("h", _)) = head
-  @match Absyn.CREF(Absyn.CREF_IDENT("t", _)) = rest
-  @test true
+  local exp::Absyn.Exp = firstAssignedValue(prog)
+  @test exp isa Absyn.CONS
+  @test isIdentCref(exp.head, "h")
+  @test isIdentCref(exp.rest, "t")
 end
 
 @testset "MetaModelica: Empty list {}" begin
-  prog = mmParse("""
+  local prog::Absyn.Program = mmParse("""
     function testEmpty
       output list<Integer> result;
     algorithm
       result := {};
     end testEmpty;
   """)
-  @match Absyn.PARTS(_, _, classParts, _, _) = firstClassBody(prog)
-  algSection = nothing
-  for part in classParts
-    if part isa Absyn.ALGORITHMS
-      algSection = part
-    end
-  end
-  @test algSection !== nothing
-  @match Absyn.ALGORITHMS(algItems) = algSection
-  @match algItem <| _ = algItems
-  @match Absyn.ALGORITHMITEM(Absyn.ALG_ASSIGN(_, arrayExp), _, _) = algItem
-  #= Empty {} parses as ARRAY with empty list =#
-  @match Absyn.ARRAY(exps) = arrayExp
-  @test listEmpty(exps)
+  local exp::Absyn.Exp = firstAssignedValue(prog)
+  #= Empty {} parses as ARRAY with an empty list =#
+  @test exp isa Absyn.ARRAY
+  @test isempty(exp.arrayExp)
 end
 
 @testset "MetaModelica: Wildcard pattern (_)" begin
-  prog = mmParse("""
+  local prog::Absyn.Program = mmParse("""
     function testWild
       input Integer x;
       output Integer y;
@@ -182,27 +167,16 @@ end
       end match;
     end testWild;
   """)
-  @match Absyn.PARTS(_, _, classParts, _, _) = firstClassBody(prog)
-  algSection = nothing
-  for part in classParts
-    if part isa Absyn.ALGORITHMS
-      algSection = part
-    end
-  end
-  @match Absyn.ALGORITHMS(algItems) = algSection
-  @match algItem <| _ = algItems
-  @match Absyn.ALGORITHMITEM(Absyn.ALG_ASSIGN(_, matchExp), _, _) = algItem
-  @match Absyn.MATCHEXP(_, _, _, cases, _) = matchExp
-  @match c1 <| _ = cases
-  @match Absyn.CASE(pattern, _, _, _, _, Absyn.INTEGER(99), _, _, _) = c1
-  @test pattern isa Absyn.CREF
+  local cases::Vector{Absyn.Case} = matchCases(prog)
+  @test length(cases) == 1
+  @test cases[1] isa Absyn.CASE
+  @test isInteger(cases[1].result, 99)
   #= The wildcard _ parses as CREF(WILD()) =#
-  @match Absyn.CREF(Absyn.WILD()) = pattern
-  @test true
+  @test isWild(cases[1].pattern)
 end
 
 @testset "MetaModelica: As-pattern binding" begin
-  prog = mmParse("""
+  local prog::Absyn.Program = mmParse("""
     function testAs
       input list<Integer> lst;
       output Integer h;
@@ -213,28 +187,19 @@ end
       end match;
     end testAs;
   """)
-  @match Absyn.PARTS(_, _, classParts, _, _) = firstClassBody(prog)
-  algSection = nothing
-  for part in classParts
-    if part isa Absyn.ALGORITHMS
-      algSection = part
-    end
-  end
-  @match Absyn.ALGORITHMS(algItems) = algSection
-  @match algItem <| _ = algItems
-  @match Absyn.ALGORITHMITEM(Absyn.ALG_ASSIGN(_, matchExp), _, _) = algItem
-  @match Absyn.MATCHEXP(_, _, _, cases, _) = matchExp
-  @match c1 <| _ = cases
-  @match Absyn.CASE(pattern, _, _, _, _, _, _, _, _) = c1
-  #= Should be AS("all", CONS(CREF("h"), CREF(WILD()))) =#
-  @match Absyn.AS("all", Absyn.CONS(head, rest)) = pattern
-  @match Absyn.CREF(Absyn.CREF_IDENT("h", _)) = head
-  @match Absyn.CREF(Absyn.WILD()) = rest
-  @test true
+  local cases::Vector{Absyn.Case} = matchCases(prog)
+  @test cases[1] isa Absyn.CASE
+  #= AS("all", CONS(CREF("h"), CREF(WILD()))) =#
+  local pattern::Absyn.Exp = cases[1].pattern
+  @test pattern isa Absyn.AS
+  @test pattern.id == "all"
+  @test pattern.exp isa Absyn.CONS
+  @test isIdentCref(pattern.exp.head, "h")
+  @test isWild(pattern.exp.rest)
 end
 
 @testset "MetaModelica: Try-catch in algorithm" begin
-  prog = mmParse("""
+  local prog::Absyn.Program = mmParse("""
     function testTry
       input Integer x;
       output Integer y;
@@ -246,29 +211,19 @@ end
       end try;
     end testTry;
   """)
-  @match Absyn.PARTS(_, _, classParts, _, _) = firstClassBody(prog)
-  algSection = nothing
-  for part in classParts
-    if part isa Absyn.ALGORITHMS
-      algSection = part
-    end
-  end
-  @test algSection !== nothing
-  @match Absyn.ALGORITHMS(algItems) = algSection
-  @match algItem <| _ = algItems
-  @match Absyn.ALGORITHMITEM(alg, _, _) = algItem
+  local alg::Absyn.Algorithm = first(algorithmItems(prog)).algorithm_
   @test alg isa Absyn.ALG_TRY
-  @match Absyn.ALG_TRY(tryBody, elseBody) = alg
-  #= Both branches should have one assignment =#
-  @match tryItem <| _ = tryBody
-  @match Absyn.ALGORITHMITEM(Absyn.ALG_ASSIGN(_, _), _, _) = tryItem
-  @match elseItem <| _ = elseBody
-  @match Absyn.ALGORITHMITEM(Absyn.ALG_ASSIGN(_, _), _, _) = elseItem
-  @test true
+  #= Both branches have one assignment =#
+  for body in (alg.body, alg.elseBody)
+    local items::Vector{Absyn.AlgorithmItem} = collect(body)
+    @test length(items) == 1
+    @test first(items) isa Absyn.ALGORITHMITEM
+    @test first(items).algorithm_ isa Absyn.ALG_ASSIGN
+  end
 end
 
 @testset "MetaModelica: Match with local declarations" begin
-  prog = mmParse("""
+  local prog::Absyn.Program = mmParse("""
     function testLocal
       input Integer x;
       output String s;
@@ -283,31 +238,20 @@ end
       end match;
     end testLocal;
   """)
-  @match Absyn.PARTS(_, _, classParts, _, _) = firstClassBody(prog)
-  algSection = nothing
-  for part in classParts
-    if part isa Absyn.ALGORITHMS
-      algSection = part
-    end
-  end
-  @match Absyn.ALGORITHMS(algItems) = algSection
-  @match algItem <| _ = algItems
-  @match Absyn.ALGORITHMITEM(Absyn.ALG_ASSIGN(_, matchExp), _, _) = algItem
-  @match Absyn.MATCHEXP(Absyn.MATCH(), _, localDecls, cases, _) = matchExp
-  #= Should have local declarations =#
-  @test !listEmpty(localDecls)
-  #= Should have 2 cases =#
-  @match c1 <| (c2 <| _) = cases
-  @test c1 isa Absyn.CASE
-  @test c2 isa Absyn.ELSE
-  #= Case 1 result should be string "one" =#
-  @match Absyn.CASE(Absyn.INTEGER(1), _, _, _, _, Absyn.STRING("one"), _, _, _) = c1
-  @match Absyn.ELSE(_, _, Absyn.STRING("other"), _, _, _) = c2
-  @test true
+  local exp::Absyn.Exp = firstAssignedValue(prog)
+  @test exp isa Absyn.MATCHEXP
+  @test exp.matchTy isa Absyn.MATCH
+  @test !isempty(exp.localDecls)
+  local cases::Vector{Absyn.Case} = matchCases(prog)
+  @test length(cases) == 2
+  @test cases[1] isa Absyn.CASE && isInteger(cases[1].pattern, 1)
+  @test cases[1].result isa Absyn.STRING && cases[1].result.value == "one"
+  @test cases[2] isa Absyn.ELSE
+  @test cases[2].result isa Absyn.STRING && cases[2].result.value == "other"
 end
 
 @testset "MetaModelica: Match with guard condition" begin
-  prog = mmParse("""
+  local prog::Absyn.Program = mmParse("""
     function testGuard
       input Integer x;
       output Integer y;
@@ -318,47 +262,32 @@ end
       end match;
     end testGuard;
   """)
-  @match Absyn.PARTS(_, _, classParts, _, _) = firstClassBody(prog)
-  algSection = nothing
-  for part in classParts
-    if part isa Absyn.ALGORITHMS
-      algSection = part
-    end
-  end
-  @match Absyn.ALGORITHMS(algItems) = algSection
-  @match algItem <| _ = algItems
-  @match Absyn.ALGORITHMITEM(Absyn.ALG_ASSIGN(_, matchExp), _, _) = algItem
-  @match Absyn.MATCHEXP(_, _, _, cases, _) = matchExp
-  @match c1 <| _ = cases
-  @match Absyn.CASE(Absyn.INTEGER(1), guardExp, _, _, _, Absyn.INTEGER(10), _, _, _) = c1
-  #= Guard should be SOME(x > 0) =#
-  @test guardExp isa SOME
-  @match SOME(Absyn.RELATION(_, Absyn.GREATER(), _)) = guardExp
-  @test true
+  local c1::Absyn.Case = first(matchCases(prog))
+  @test c1 isa Absyn.CASE && isInteger(c1.pattern, 1) && isInteger(c1.result, 10)
+  #= The guard is SOME(x > 0) =#
+  @test c1.patternGuard isa SOME
+  local guard::Absyn.Exp = c1.patternGuard.data
+  @test guard isa Absyn.RELATION
+  @test guard.op isa Absyn.GREATER
 end
 
 @testset "MetaModelica: Nested cons builds list" begin
-  prog = mmParse("""
+  local prog::Absyn.Program = mmParse("""
     function testNestedCons
       output list<Integer> result;
     algorithm
       result := 1 :: 2 :: 3 :: {};
     end testNestedCons;
   """)
-  @match Absyn.PARTS(_, _, classParts, _, _) = firstClassBody(prog)
-  algSection = nothing
-  for part in classParts
-    if part isa Absyn.ALGORITHMS
-      algSection = part
-    end
+  #= CONS(1, CONS(2, CONS(3, ARRAY({})))) =#
+  local exp::Absyn.Exp = firstAssignedValue(prog)
+  for value in 1:3
+    @test exp isa Absyn.CONS
+    @test isInteger(exp.head, value)
+    exp = exp.rest
   end
-  @match Absyn.ALGORITHMS(algItems) = algSection
-  @match algItem <| _ = algItems
-  @match Absyn.ALGORITHMITEM(Absyn.ALG_ASSIGN(_, consExp), _, _) = algItem
-  #= Should be CONS(1, CONS(2, CONS(3, ARRAY({})))) =#
-  @match Absyn.CONS(Absyn.INTEGER(1), rest1) = consExp
-  @match Absyn.CONS(Absyn.INTEGER(2), rest2) = rest1
-  @match Absyn.CONS(Absyn.INTEGER(3), rest3) = rest2
-  @match Absyn.ARRAY(emptyList) = rest3
-  @test listEmpty(emptyList)
+  @test exp isa Absyn.ARRAY
+  @test isempty(exp.arrayExp)
+end
+
 end

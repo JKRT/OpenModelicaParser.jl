@@ -13,7 +13,7 @@ module MSLExampleTests
 
 using Test
 import ImmutableList
-import MetaModelica
+import ImmutableList
 import OpenModelicaParser
 using OpenModelicaParser: @Modelica, @Modelica_str
 
@@ -79,13 +79,13 @@ function isExample(specs::Vector{Absyn.ElementSpec})::Bool
 end
 
 """
-    classText(info::MetaModelica.SourceInfo, lines::Vector{String})::String
+    classText(info::ImmutableList.SourceInfo, lines::Vector{String})::String
 
 The source of the class at `info` in the file of the `lines`: its lines up to its `end` (the end
 column of `info` is the column after it), a semicolon after it, and spaces in place of what
 precedes the class on its first line. Every line and column of the text is the one of the file.
 """
-function classText(info::MetaModelica.SourceInfo, lines::Vector{String})::String
+function classText(info::ImmutableList.SourceInfo, lines::Vector{String})::String
   local text::Vector{String} = lines[info.lineNumberStart:info.lineNumberEnd]
   text[end] = string(first(text[end], info.columnNumberEnd - 1), ";")
   local indent::Int = info.columnNumberStart - 1
@@ -103,7 +103,7 @@ function collectExamples!(found::Vector{ExampleModel}, class::Absyn.Class, scope
   local name::String = isempty(scope) ? class.name : string(scope, ".", class.name)
   local specs::Vector{Absyn.ElementSpec} = elementSpecs(class)
   if isExample(specs)
-    local info::MetaModelica.SourceInfo = class.info
+    local info::ImmutableList.SourceInfo = class.info
     push!(found, ExampleModel(name, class, info.lineNumberStart, classText(info, lines)))
   end
   for spec::Absyn.ElementSpec in specs

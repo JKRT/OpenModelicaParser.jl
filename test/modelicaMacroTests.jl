@@ -7,12 +7,12 @@ The tests of the macros depend on the lines they are written on: positions are g
 module ModelicaMacroTests
 
 using Test
-import MetaModelica
+import ImmutableList
 import OpenModelicaParser
 using OpenModelicaParser: @Modelica, @Modelica_str
 
 "The fields of a `SourceInfo` (a mutable struct: compared by its fields)."
-fields(i::MetaModelica.SourceInfo) = ntuple(k -> getfield(i, k), fieldcount(typeof(i)))
+fields(i::ImmutableList.SourceInfo) = ntuple(k -> getfield(i, k), fieldcount(typeof(i)))
 
 "The message of the `ParseError` that parsing `text` from the line `firstLine` on throws."
 function errorMessage(text::String, firstLine::Int)::String
