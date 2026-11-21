@@ -28,6 +28,8 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         julia-version: ['1.13']
     name: Test (${{ matrix.os }}, Julia ${{ matrix.julia-version }})
+    permissions:
+      contents: write  # the coverage badge file on gh-pages
     steps:
     - uses: actions/checkout@v4
 
@@ -57,6 +59,23 @@ jobs:
           Pkg.instantiate()
         '
 
+    # Coverage on Linux only (Pkg.test's --code-coverage=@<package>).
     - name: Test
       shell: bash
-      run: julia --color=yes --project -e 'import Pkg; Pkg.test("OpenModelicaParser")'
+      env:
+        COVERAGE: ${{ runner.os == 'Linux' }}
+      run: julia --color=yes --project -e 'import Pkg; Pkg.test("OpenModelicaParser"; coverage = ENV["COVERAGE"] == "true")'
+
+    - uses: julia-actions/julia-processcoverage@v1
+      if: runner.os == 'Linux'
+      with:
+        directories: src
+
+    # The coverage in the job summary and, on master, coverage.json on gh-pages for the README's badge (no external
+    # service; the action is shared by the OM.jl packages).
+    - name: Coverage
+      if: runner.os == 'Linux'
+      uses: JKRT/OM.jl/.github/actions/coverage@master
+      with:
+        name: OpenModelicaParser.jl/src
+        publish: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
