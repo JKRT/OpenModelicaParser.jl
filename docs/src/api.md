@@ -12,6 +12,7 @@ OpenModelicaParser.@Modelica
 ## Modules
 
 ```@docs
-OpenModelicaParser.Absyn
 OpenModelicaParser.Parser
 ```
+
+`OpenModelicaParser.Absyn`: see [Absyn](absyn.md).
