@@ -28,6 +28,8 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         julia-version: ['1.13']
     name: Test (${{ matrix.os }}, Julia ${{ matrix.julia-version }})
+    permissions:
+      contents: write  # coverage.json on gh-pages
     steps:
     - uses: actions/checkout@v4
 
@@ -35,28 +37,63 @@ jobs:
       with:
         version: ${{ matrix.julia-version }}
 
-    # The shared action checks the siblings out at the branch that matches this
-    # change (the PR branch if the sibling has it, else the PR base branch, else
-    # master).
-    - name: Clone sibling OM.jl packages
-      uses: JKRT/OM.jl/.github/actions/checkout-siblings@master
-      with:
-        path: ..
-        packages: ImmutableList
-
-    - name: Develop sibling ImmutableList
-      shell: bash
-      run: |
-        julia --color=yes --project -e '
-          import Pkg
-          Pkg.Registry.add("General")
-          Pkg.Registry.add(Pkg.RegistrySpec(url="https://github.com/OpenModelica/OpenModelicaRegistry.git"))
-          Pkg.develop([
-            Pkg.PackageSpec(path="../ImmutableList.jl"),
-          ])
-          Pkg.instantiate()
-        '
-
+    # The dependencies (ExportAll, ImmutableList, PrecompileTools) come from General: no sibling checkouts.
+    # Coverage on Linux only (Pkg.test's --code-coverage=@<package>).
     - name: Test
       shell: bash
-      run: julia --color=yes --project -e 'import Pkg; Pkg.test("OpenModelicaParser")'
+      env:
+        COVERAGE: ${{ runner.os == 'Linux' }}
+      run: julia --color=yes --project -e 'import Pkg; Pkg.test("OpenModelicaParser"; coverage = ENV["COVERAGE"] == "true")'
+
+    - uses: julia-actions/julia-processcoverage@v1
+      if: runner.os == 'Linux'
+      with:
+        directories: src
+
+    # The total and the per-file lines in the job summary, and coverage.json (a shields.io endpoint) for the
+    # README's badge. No external service.
+    - name: Coverage summary
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        awk -F: '
+          /^SF:/ { f = substr($0, 4); if (!(f in n)) { F++; n[f] = 0; h[f] = 0 } }
+          /^LH:/ { h[f] += $2; H += $2 }
+          /^LF:/ { n[f] += $2; N += $2 }
+          END {
+            p = N == 0 ? 0 : 100 * H / N
+            c = p >= 90 ? "brightgreen" : p >= 80 ? "green" : p >= 70 ? "yellowgreen" : p >= 60 ? "yellow" : p >= 50 ? "orange" : "red"
+            m = N == 0 ? "unknown" : sprintf("%.1f%%", p)
+            printf "{\"schemaVersion\": 1, \"label\": \"coverage\", \"message\": \"%s\", \"color\": \"%s\"}\n", m, c > "coverage.json"
+            printf "## Coverage of OpenModelicaParser.jl/src\n\n**%s**: %d of %d lines, %d files.\n\n", m, H, N, F
+            print "| file | covered | lines | |"
+            print "|---|---:|---:|---:|"
+            for (f in n) printf "| `%s` | %d | %d | %.1f %% |\n", f, h[f], n[f], n[f] == 0 ? 0 : 100 * h[f] / n[f]
+          }' lcov.info >> "$GITHUB_STEP_SUMMARY"
+        cat coverage.json
+
+    # Only for master pushes (the tests passed, or this step would not run). Documenter and other workflows may
+    # deploy to the same branch: a rejected push starts again from the branch's new tip.
+    - name: Publish the badge on gh-pages
+      if: runner.os == 'Linux' && github.event_name == 'push' && github.ref == 'refs/heads/master'
+      shell: bash
+      run: |
+        badge="$PWD/coverage.json"
+        pages="$RUNNER_TEMP/coverage-pages"
+        for attempt in 1 2 3; do
+          rm -rf "$pages" && git worktree prune
+          if git fetch --depth=1 origin gh-pages; then
+            git worktree add --detach "$pages" FETCH_HEAD
+          else
+            git worktree add --orphan -b "coverage-pages-$attempt" "$pages"
+          fi
+          cp "$badge" "$pages/coverage.json"
+          git -C "$pages" add coverage.json
+          if git -C "$pages" diff --cached --quiet; then echo "coverage unchanged"; exit 0; fi
+          git -C "$pages" -c user.name="github-actions[bot]" \
+            -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "Coverage badge: $(sed -n 's/.*"message": "\([^"]*\)".*/\1/p' "$badge") (${GITHUB_SHA::8})"
+          git -C "$pages" push origin HEAD:refs/heads/gh-pages && exit 0
+          sleep $((attempt * 10))
+        done
+        exit 1
