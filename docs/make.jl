@@ -17,8 +17,9 @@ makedocs(
     "Modelica in Julia files" => "macro.md",
     "How it works" => "internals.md",
     "API reference" => "api.md",
+    "Absyn" => "absyn.md",
   ],
-  #= The exported names (the macros) must be in the manual; the other docstrings are internals. =#
+  #= The exported names must be in the manual: the macros, and Absyn's (it exports all its names). =#
   checkdocs = :exports,
 )
 
